@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Новая задача</title>
+    <title>Задача</title>
     <!-- Подключаем скрипт Telegram Web App -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
@@ -126,7 +126,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Раскрываем Mini App на весь экран
+        tg.expand(); 
 
         const titleInput = document.getElementById('title');
         const descriptionInput = document.getElementById('description');
@@ -134,11 +134,18 @@
         const taskIdInput = document.getElementById('task-id');
         const priorityButtons = document.querySelectorAll('.priority-btn');
         let activePriority = 'medium';
+        
+        // --- ИСПРАВЛЕНИЕ: Получаем цвета из темы и устанавливаем их ---
+        try {
+            tg.MainButton.textColor = tg.themeParams.button_text_color || '#ffffff';
+            tg.MainButton.color = tg.themeParams.button_color || '#2481cc';
+        } catch (e) {
+            console.error("Не удалось установить цвета кнопки:", e);
+        }
 
-        // --- НОВЫЙ БЛОК: Заполнение формы данными для редактирования ---
+
         function fillFormFromHash() {
             try {
-                // Получаем параметры из URL hash (например, #param1=value1&param2=value2)
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 
                 const taskId = hashParams.get('taskId');
@@ -147,17 +154,12 @@
                 const deadline = hashParams.get('deadline');
                 const priority = hashParams.get('priority');
 
-                if (taskId) {
+                if (taskId && taskId !== 'null') {
                     taskIdInput.value = taskId;
                     titleInput.value = title || '';
                     descriptionInput.value = description || '';
-                    // Формат даты для input type="date" должен быть YYYY-MM-DD
-                    if (deadline && deadline.includes('.')) {
-                        const parts = deadline.split('.');
-                        deadlineInput.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                    } else {
-                        deadlineInput.value = deadline || '';
-                    }
+                    
+                    deadlineInput.value = deadline || '';
                     
                     if (priority) {
                         selectPriority(priority);
@@ -172,7 +174,6 @@
             }
         }
         
-        // --- Логика кнопок приоритета ---
         function selectPriority(priorityValue) {
             priorityButtons.forEach(btn => btn.classList.remove('active'));
             const selectedBtn = document.querySelector(`.priority-btn[data-priority="${priorityValue}"]`);
@@ -187,34 +188,34 @@
                 selectPriority(this.dataset.priority);
             });
         });
-
-        // --- ИСПРАВЛЕННАЯ Логика главной кнопки Telegram ---
-        // API Telegram требует прямые hex-коды, а не CSS-переменные.
-        // Мы берем их из объекта themeParams, который предоставляет сам Telegram.
-        tg.MainButton.textColor = tg.themeParams.button_text_color || '#ffffff';
-        tg.MainButton.color = tg.themeParams.button_color || '#2481cc';
-
-
+        
+        // --- УЛУЧШЕННЫЙ ОБРАБОТЧИК КНОПКИ ---
         tg.onEvent('mainButtonClicked', function() {
-            const title = titleInput.value.trim();
-            if (title === "") {
-                tg.showAlert('Пожалуйста, введите название задачи.');
-                return;
+            try {
+                const title = titleInput.value.trim();
+                if (title === "") {
+                    tg.showAlert('Пожалуйста, введите название задачи.');
+                    return;
+                }
+
+                const data = {
+                    // Убеждаемся, что отправляем null, если ID пустой
+                    taskId: taskIdInput.value || null, 
+                    title: title,
+                    description: descriptionInput.value,
+                    deadline: deadlineInput.value,
+                    priority: activePriority
+                };
+                
+                // Отправляем данные в бота
+                tg.sendData(JSON.stringify(data));
+
+            } catch (e) {
+                // Показываем ошибку пользователю, если что-то пошло не так
+                tg.showAlert('Произошла ошибка при отправке данных: ' + e.message);
             }
-
-            const data = {
-                taskId: taskIdInput.value || null, // Отправляем ID, если он есть
-                title: title,
-                description: descriptionInput.value,
-                deadline: deadlineInput.value,
-                priority: activePriority
-            };
-
-            // Отправляем данные в бота
-            tg.sendData(JSON.stringify(data));
         });
         
-        // --- Управление видимостью главной кнопки ---
         function toggleMainButton() {
             if (titleInput.value.trim() !== "") {
                 tg.MainButton.show();
@@ -225,9 +226,8 @@
         
         titleInput.addEventListener('input', toggleMainButton);
         
-        // --- Вызов функций при загрузке ---
-        fillFormFromHash(); // Заполняем форму
-        toggleMainButton(); // Проверяем, нужно ли показывать кнопку
+        fillFormFromHash();
+        toggleMainButton();
     });
 </script>
 </body>
