@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Новая задача</title>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #ffffff);
+            --text-color: var(--tg-theme-text-color, #000000);
+            --hint-color: var(--tg-theme-hint-color, #999999);
+            --link-color: var(--tg-theme-link-color, #2481cc);
+            --button-color: var(--tg-theme-button-color, #2481cc);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --secondary-bg-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: var(--hint-color);
+        }
+
+        input[type="text"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--secondary-bg-color);
+            color: var(--text-color);
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: box-shadow 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="date"]:focus,
+        textarea:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--link-color);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .priority-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .priority-btn {
+            flex-grow: 1;
+            padding: 10px;
+            border: 2px solid var(--secondary-bg-color);
+            border-radius: 8px;
+            background-color: var(--secondary-bg-color);
+            color: var(--text-color);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .priority-btn.selected {
+            border-color: var(--link-color);
+            color: var(--link-color);
+            background-color: transparent;
+        }
+
+        #error-message {
+            color: var(--tg-theme-destructive-text-color, #ff4d4d);
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Новая задача</h1>
+
+        <div class="form-group">
+            <label for="title">Название</label>
+            <input type="text" id="title" placeholder="Например, купить молоко" maxlength="100">
+        </div>
+
+        <div class="form-group">
+            <label for="description">Описание (необязательно)</label>
+            <textarea id="description" placeholder="Подробности задачи..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="deadline">Дедлайн (необязательно)</label>
+            <input type="date" id="deadline">
+        </div>
+
+        <div class="form-group">
+            <label>Приоритет</label>
+            <div class="priority-selector">
+                <div class="priority-btn" data-priority="low">🟢 Низкий</div>
+                <div class="priority-btn selected" data-priority="medium">🟡 Средний</div>
+                <div class="priority-btn" data-priority="high">🔴 Высокий</div>
+            </div>
+        </div>
+
+        <div id="error-message">Пожалуйста, введите название задачи.</div>
+
+    </div>
+
+    <!-- Скрипт для взаимодействия с Telegram -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        const tg = window.Telegram.WebApp;
+        const mainButton = tg.MainButton;
+        const titleInput = document.getElementById('title');
+        const descriptionInput = document.getElementById('description');
+        const deadlineInput = document.getElementById('deadline');
+        const priorityButtons = document.querySelectorAll('.priority-btn');
+        const errorMessage = document.getElementById('error-message');
+
+        let selectedPriority = 'medium'; // Значение по умолчанию
+
+        // --- Настройка главной кнопки ---
+        mainButton.setText('Сохранить задачу');
+        mainButton.setParams({
+            is_visible: true
+        });
+
+        // --- Обработка кликов по кнопкам приоритета ---
+        priorityButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                priorityButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                selectedPriority = button.getAttribute('data-priority');
+            });
+        });
+
+        // --- Обработка клика по главной кнопке ---
+        tg.onEvent('mainButtonClicked', function() {
+            // Валидация
+            if (titleInput.value.trim() === '') {
+                errorMessage.style.display = 'block';
+                return;
+            }
+            errorMessage.style.display = 'none';
+
+            // Сбор данных
+            const data = {
+                title: titleInput.value,
+                description: descriptionInput.value || null,
+                deadline: deadlineInput.value || null,
+                priority: selectedPriority
+            };
+
+            // Отправка данных боту
+            tg.sendData(JSON.stringify(data));
+        });
+
+        // --- Скрытие/показ главной кнопки при вводе ---
+        titleInput.addEventListener('input', function() {
+            if (this.value.trim() !== '') {
+                mainButton.show();
+                errorMessage.style.display = 'none';
+            } else {
+                mainButton.hide();
+            }
+        });
+
+        // Показываем кнопку сразу, если поле уже заполнено (маловероятно, но на всякий случай)
+        if (titleInput.value.trim() !== '') {
+            mainButton.show();
+        } else {
+            mainButton.hide();
+        }
+
+        tg.ready();
+    </script>
+</body>
+</html>
+
