@@ -88,7 +88,6 @@
             background-color: var(--button-color);
             color: var(--button-text-color);
         }
-        /* Скрытое поле для хранения ID задачи при редактировании */
         #task-id {
             display: none;
         }
@@ -125,17 +124,19 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // 1. Инициализация
         const tg = window.Telegram.WebApp;
-        tg.expand(); 
+        tg.expand();
 
+        // 2. Получение элементов
         const titleInput = document.getElementById('title');
         const descriptionInput = document.getElementById('description');
         const deadlineInput = document.getElementById('deadline');
         const taskIdInput = document.getElementById('task-id');
         const priorityButtons = document.querySelectorAll('.priority-btn');
         let activePriority = 'medium';
-        
-        // --- ИСПРАВЛЕНИЕ: Получаем цвета из темы и устанавливаем их ---
+
+        // 3. Настройка главной кнопки
         try {
             tg.MainButton.textColor = tg.themeParams.button_text_color || '#ffffff';
             tg.MainButton.color = tg.themeParams.button_color || '#2481cc';
@@ -143,8 +144,67 @@
             console.error("Не удалось установить цвета кнопки:", e);
         }
 
+        // 4. Логика обработки нажатия главной кнопки
+        const onMainButtonClick = function() {
+            try {
+                const title = titleInput.value.trim();
+                if (title === "") {
+                    tg.showAlert('Пожалуйста, введите название задачи.');
+                    return;
+                }
 
-        function fillFormFromHash() {
+                const data = {
+                    taskId: taskIdInput.value || null,
+                    title: title,
+                    description: descriptionInput.value,
+                    deadline: deadlineInput.value,
+                    priority: activePriority
+                };
+                
+                // Отправляем данные и закрываем приложение
+                tg.sendData(JSON.stringify(data));
+                tg.close();
+
+            } catch (e) {
+                tg.showAlert('Произошла ошибка при отправке данных: ' + e.message);
+            }
+        };
+
+        // Назначаем обработчик
+        tg.offEvent('mainButtonClicked', onMainButtonClick);
+        tg.onEvent('mainButtonClicked', onMainButtonClick);
+
+        // 5. Логика кнопок приоритета
+        const selectPriority = function(priorityValue) {
+            priorityButtons.forEach(btn => btn.classList.remove('active'));
+            const selectedBtn = document.querySelector(`.priority-btn[data-priority="${priorityValue}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.add('active');
+                activePriority = priorityValue;
+            }
+        };
+
+        priorityButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                selectPriority(this.dataset.priority);
+            });
+        });
+
+        // 6. Логика состояния главной кнопки (вкл/выкл)
+        const updateMainButtonState = function() {
+            if (titleInput.value.trim() !== "") {
+                tg.MainButton.enable();
+                tg.MainButton.show();
+            } else {
+                tg.MainButton.disable();
+                tg.MainButton.hide();
+            }
+        };
+        
+        titleInput.addEventListener('input', updateMainButtonState);
+        
+        // 7. Заполнение формы при редактировании
+        const fillFormFromHash = function() {
             try {
                 const hashParams = new URLSearchParams(window.location.hash.substring(1));
                 
@@ -158,76 +218,23 @@
                     taskIdInput.value = taskId;
                     titleInput.value = title || '';
                     descriptionInput.value = description || '';
-                    
                     deadlineInput.value = deadline || '';
-                    
                     if (priority) {
                         selectPriority(priority);
                     }
-                    tg.MainButton.text = "Сохранить изменения";
+                    tg.MainButton.setText("Сохранить изменения");
                 } else {
-                    tg.MainButton.text = "Создать задачу";
+                    tg.MainButton.setText("Создать задачу");
                 }
             } catch (e) {
                 console.error("Ошибка при парсинге URL hash:", e);
-                tg.MainButton.text = "Создать задачу";
+                tg.MainButton.setText("Создать задачу");
             }
-        }
-        
-        function selectPriority(priorityValue) {
-            priorityButtons.forEach(btn => btn.classList.remove('active'));
-            const selectedBtn = document.querySelector(`.priority-btn[data-priority="${priorityValue}"]`);
-            if (selectedBtn) {
-                selectedBtn.classList.add('active');
-                activePriority = priorityValue;
-            }
-        }
+        };
 
-        priorityButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                selectPriority(this.dataset.priority);
-            });
-        });
-        
-        // --- УЛУЧШЕННЫЙ ОБРАБОТЧИК КНОПКИ ---
-        tg.onEvent('mainButtonClicked', function() {
-            try {
-                const title = titleInput.value.trim();
-                if (title === "") {
-                    tg.showAlert('Пожалуйста, введите название задачи.');
-                    return;
-                }
-
-                const data = {
-                    // Убеждаемся, что отправляем null, если ID пустой
-                    taskId: taskIdInput.value || null, 
-                    title: title,
-                    description: descriptionInput.value,
-                    deadline: deadlineInput.value,
-                    priority: activePriority
-                };
-                
-                // Отправляем данные в бота
-                tg.sendData(JSON.stringify(data));
-
-            } catch (e) {
-                // Показываем ошибку пользователю, если что-то пошло не так
-                tg.showAlert('Произошла ошибка при отправке данных: ' + e.message);
-            }
-        });
-        
-        function toggleMainButton() {
-            if (titleInput.value.trim() !== "") {
-                tg.MainButton.show();
-            } else {
-                tg.MainButton.hide();
-            }
-        }
-        
-        titleInput.addEventListener('input', toggleMainButton);
-        
+        // 8. Инициализация при загрузке
         fillFormFromHash();
-        toggleMainButton();
+        updateMainButtonState();
     });
 </script>
 </body>
